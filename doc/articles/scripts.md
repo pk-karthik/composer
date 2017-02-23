@@ -210,8 +210,10 @@ simply running `composer test`:
 }
 ```
 
-> **Note:** Composer's bin-dir is pushed on top of the PATH so that binaries
-> of dependencies are easily accessible as CLI commands when writing scripts.
+> **Note:** Before executing scripts, Composer's bin-dir is temporarily pushed
+> on top of the PATH environment variable so that binaries of dependencies
+> are easily accessible. In this example no matter if the `phpunit` binary is
+> actually in `vendor/bin/phpunit` or `bin/phpunit` it will be found and executed.
 
 ## Referencing scripts
 
@@ -248,4 +250,24 @@ resolve to whatever composer.phar is currently being used:
 
 One limitation of this is that you can not call multiple composer commands in
 a row like `@composer install && @composer foo`. You must split them up in a
+JSON array of commands.
+
+## Executing PHP scripts
+
+To execute PHP scripts, you can use `@php` which will automatically
+resolve to whatever php process is currently being used:
+
+```json
+{
+    "scripts": {
+        "test": [
+            "@php script.php",
+            "phpunit"
+        ]
+    }
+}
+```
+
+One limitation of this is that you can not call multiple commands in
+a row like `@php install && @php foo`. You must split them up in a
 JSON array of commands.

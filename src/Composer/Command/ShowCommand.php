@@ -57,7 +57,7 @@ class ShowCommand extends BaseCommand
         $this
             ->setName('show')
             ->setAliases(array('info'))
-            ->setDescription('Show information about packages')
+            ->setDescription('Show information about packages.')
             ->setDefinition(array(
                 new InputArgument('package', InputArgument::OPTIONAL, 'Package to inspect. Or a name including a wildcard (*) to filter lists of packages instead.'),
                 new InputArgument('version', InputArgument::OPTIONAL, 'Version or version constraint to inspect'),
@@ -73,6 +73,7 @@ class ShowCommand extends BaseCommand
                 new InputOption('outdated', 'o', InputOption::VALUE_NONE, 'Show the latest version but only for packages that are outdated'),
                 new InputOption('minor-only', 'm', InputOption::VALUE_NONE, 'Show only packages that have minor SemVer-compatible updates. Use with the --outdated option.'),
                 new InputOption('direct', 'D', InputOption::VALUE_NONE, 'Shows only packages that are directly required by the root package'),
+                new InputOption('strict', null, InputOption::VALUE_NONE, 'Return a non-zero exit code when there are outdated packages'),
             ))
             ->setHelp(<<<EOT
 The show command displays detailed information about a package, or
@@ -165,8 +166,14 @@ EOT
             if (empty($package)) {
                 list($package, $versions) = $this->getPackage($installedRepo, $repos, $input->getArgument('package'), $input->getArgument('version'));
 
-                if (!$package) {
-                    throw new \InvalidArgumentException('Package '.$input->getArgument('package').' not found');
+                if (empty($package)) {
+                    $options = $input->getOptions();
+                    if (!isset($options['working-dir']) || !file_exists('composer.json')) {
+                        throw new \InvalidArgumentException('Package ' . $packageFilter . ' not found');
+                    }
+
+                    $io->writeError('Package ' . $packageFilter . ' not found in ' . $options['working-dir'] . '/composer.json');
+                    return 1;
                 }
             } else {
                 $versions = array($package->getPrettyVersion() => $package->getVersion());
@@ -310,6 +317,10 @@ EOT
                 $writeVersion = !$input->getOption('name-only') && !$input->getOption('path') && $showVersion && ($nameLength + $versionLength + 3 <= $width);
                 $writeLatest = $writeVersion && $showLatest && ($nameLength + $versionLength + $latestLength + 3 <= $width);
                 $writeDescription = !$input->getOption('name-only') && !$input->getOption('path') && ($nameLength + $versionLength + $latestLength + 24 <= $width);
+                if ($writeLatest && !$io->isDecorated()) {
+                    $latestLength += 2;
+                }
+                $hasOutdatedPackages = false;
                 foreach ($packages[$type] as $package) {
                     if (is_object($package)) {
                         $latestPackackage = null;
@@ -318,6 +329,8 @@ EOT
                         }
                         if ($input->getOption('outdated') && $latestPackackage && $latestPackackage->getFullPrettyVersion() === $package->getFullPrettyVersion() && !$latestPackackage->isAbandoned()) {
                             continue;
+                        } elseif ($input->getOption('outdated')) {
+                            $hasOutdatedPackages = true;
                         }
 
                         $io->write($indent . str_pad($package->getPrettyName(), $nameLength, ' '), false);
@@ -329,6 +342,9 @@ EOT
                         if ($writeLatest && $latestPackackage) {
                             $latestVersion = $latestPackackage->getFullPrettyVersion();
                             $style = $this->getVersionStyle($latestPackackage, $package);
+                            if (!$io->isDecorated()) {
+                                $latestVersion = str_replace(array('info', 'highlight', 'comment'), array('=', '!', '~'), $style) . ' ' . $latestVersion;
+                            }
                             $io->write(' <'.$style.'>' . str_pad($latestVersion, $latestLength, ' ') . '</'.$style.'>', false);
                         }
 
@@ -371,6 +387,9 @@ EOT
                 }
                 if ($showAllTypes) {
                     $io->write('');
+                }
+                if ($input->getOption('strict') && $hasOutdatedPackages) {
+                    return 1;
                 }
             }
         }

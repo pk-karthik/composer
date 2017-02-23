@@ -27,6 +27,8 @@ class GitDownloaderTest extends TestCase
 
     protected function setUp()
     {
+        $this->skipIfNotExecutable('git');
+
         $this->fs = new Filesystem;
         $this->workingDir = $this->getUniqueTmpDirectory();
     }

@@ -175,12 +175,7 @@ class EventDispatcher
                 $args = $event->getArguments();
                 $flags = $event->getFlags();
                 if (substr($callable, 0, 10) === '@composer ') {
-                    $finder = new PhpExecutableFinder();
-                    $phpPath = $finder->find();
-                    if (!$phpPath) {
-                        throw new \RuntimeException('Failed to locate PHP binary to execute '.$scriptName);
-                    }
-                    $exec = $phpPath . '  ' . realpath($_SERVER['argv'][0]) . substr($callable, 9);
+                    $exec = $this->getPhpExecCommand() . ' ' . ProcessExecutor::escape(getenv('COMPOSER_BINARY')) . substr($callable, 9);
                     if (0 !== ($exitCode = $this->process->execute($exec))) {
                         $this->io->writeError(sprintf('<error>Script %s handling the %s event returned with error code '.$exitCode.'</error>', $callable, $event->getName()));
 
@@ -233,6 +228,10 @@ class EventDispatcher
                     }
                 }
 
+                if (substr($exec, 0, 5) === '@php ') {
+                    $exec = $this->getPhpExecCommand() . ' ' . substr($exec, 5);
+                }
+
                 if (0 !== ($exitCode = $this->process->execute($exec))) {
                     $this->io->writeError(sprintf('<error>Script %s handling the %s event returned with error code '.$exitCode.'</error>', $callable, $event->getName()));
 
@@ -248,6 +247,19 @@ class EventDispatcher
         $this->popEvent();
 
         return $return;
+    }
+
+    protected function getPhpExecCommand()
+    {
+        $finder = new PhpExecutableFinder();
+        $phpPath = $finder->find();
+        if (!$phpPath) {
+            throw new \RuntimeException('Failed to locate PHP binary to execute '.$scriptName);
+        }
+
+        $memoryFlag = ' -d memory_limit='.ini_get('memory_limit');
+
+        return ProcessExecutor::escape($phpPath) . $memoryFlag;
     }
 
     /**
@@ -460,7 +472,7 @@ class EventDispatcher
      */
     protected function isComposerScript($callable)
     {
-        return '@' === substr($callable, 0, 1);
+        return '@' === substr($callable, 0, 1) && '@php ' !== substr($callable, 0, 5);
     }
 
     /**

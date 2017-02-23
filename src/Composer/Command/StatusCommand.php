@@ -41,7 +41,7 @@ class StatusCommand extends BaseCommand
     {
         $this
             ->setName('status')
-            ->setDescription('Show a list of locally modified packages')
+            ->setDescription('Show a list of locally modified packages.')
             ->setDefinition(array(
                 new InputOption('verbose', 'v|vv|vvv', InputOption::VALUE_NONE, 'Show modified files for each directory that contains changes.'),
             ))
@@ -89,7 +89,7 @@ EOT
                     $errors[$targetDir] = $targetDir . ' is a symbolic link.';
                 }
 
-                if ($changes = $downloader->getLocalChanges($package, $targetDir, true)) {
+                if ($changes = $downloader->getLocalChanges($package, $targetDir)) {
                     $errors[$targetDir] = $changes;
                 }
             }
